@@ -2,12 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AbstractContentViewer</title>
+    <title>BinaryNumberContentViewer</title>
     <script type="application/javascript">
         function init() {
-            window.data = getData();
-            setXapiObjectGetter(getXapiObject);
-            registerOnSubmitListener(onSubmit);
+            if (typeof getData === 'undefined') {
+                window.data = {number: 255};
+            } else {
+                window.data = getData();
+                setXapiObjectGetter(getXapiObject);
+                registerOnSubmitListener(onSubmit);
+            }
         }
         function updateLayout() {
             propagateLayoutChanges();
@@ -18,13 +22,193 @@
     </script>
 </head>
 <body>
-    <!-- EXAMPLE CODE - EDIT BELOW TO VIEW DATA -->
-    <h1 id="title"></h1>
-    <script type="application/javascript">
-        init();
-        document.getElementById('title').innerHTML = data.title;
-        updateLayout();
-    </script>
-    <!-- END OF EXAMPLE CODE -->
+<!-- EXAMPLE CODE - EDIT BELOW TO VIEW DATA -->
+<div style="max-width: 300px;">
+    <p id="question"></p>
+    <button id="showHintBtn" class="btn btn-primary" onclick="showHideHint()">Show Hint</button>
+    <canvas id="canvas" width="300" height="150" style="width: 100%"></canvas>
+    <p id="solution"></p>
+</div>
+<script type="application/javascript">
+    function getXapiObject() {
+        return {};
+    }
+
+    function showHideHint() {
+        showHint = !showHint;
+        draw();
+        document.getElementById("showHintBtn").innerHTML = showHint ? "Hide Hint" : "Show Hint";
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, 300, 150);
+        for (var i = 0; i < 8; i++) {
+            if (showHint) {
+                ctx.beginPath();
+                ctx.font = "12px Arial";
+                var text = (Math.pow(2, (7 - i))).toString();
+                var twh = Math.round(ctx.measureText(text).width / 2);
+                ctx.fillStyle = "#000000";
+                ctx.fillText(text, i * 30 + 30 + 10 - twh, 30);
+                ctx.closePath();
+            }
+            ctx.beginPath();
+            ctx.strokeStyle = isShowingSolution&&active[i]&&!solution[i]?"#ff0000":"#000000";
+            ctx.arc(i * 30 + 30 + 10, 50, 10, 0, Math.PI * 2);
+            ctx.stroke();
+            if (active[i] || (isShowingSolution && solution[i])) {
+                ctx.fillStyle = active?"#00aa00":"#ff0000";
+                ctx.fill();
+            }
+            ctx.closePath();
+            ctx.beginPath();
+            ctx.font = "30px Arial";
+            var text = active[i] ? "1" : "0";
+            var twh = Math.round(ctx.measureText(text).width / 2);
+            ctx.fillStyle = "#000000";
+            ctx.fillText(text, i * 30 + 30 + 10 - twh, 100);
+            ctx.closePath();
+        }
+    }
+
+    function onCanvasClicked(event) {
+        if (!isShowingSolution) {
+            var rect = canvas.getBoundingClientRect();
+            var x = event.x - rect.left;
+            var y = event.y - rect.top;
+            for (var i = 0; i < 8; i++) {
+                if (Math.pow(x - (i * 30 + 30 + 10), 2) + Math.pow(y - 50, 2) <= 100) {
+                    active[i] = !active[i];
+                    draw();
+                    onInteraction();
+                    break;
+                }
+            }
+        }
+    }
+
+    function onInteraction() {
+        var stmt = {};
+        // actor is set by hosting application
+        stmt.actor = undefined;
+        stmt.verb = {
+            "id": "http://adlnet.gov/expapi/verbs/interacted",
+            "display": {
+                "de-DE": "interagierte",
+                "en-US": "interacted",
+                "fr-FR": "a interagi",
+                "es-ES": "interactuó"
+            }
+        };
+        stmt.object = getXapiObject();
+        var responses = [];
+        for (var i = 0; i < 8; i++) {
+            if (active[i]) {
+                responses.push(Math.pow((7 - i), 2).toString());
+            }
+        }
+        stmt.result = {
+            response: responses.reduce(function (acc, e) {
+                return (acc.length > 0 && e.length > 0) ? acc + "[,]" + e : acc.length > 0 ? acc : e;
+            }, "")
+        };
+        sendStatement(stmt);
+    }
+
+    function getXapiObject() {
+        return {
+            "objectType": "Activity",
+            // id is set by hosting application
+            "id": undefined,
+            "definition": {
+                "description": {
+                    "de-AT": window.data.question
+                },
+                "type": "http://adlnet.gov/expapi/activities/cmi.interaction",
+                "interactionType": "choice",
+                "choices": data.answers.map(function (e, i) {
+                    return {
+                        id: i.toString(),
+                        description: {
+                            "de-AT": e.value
+                        }
+                    }
+                }),
+                "correctResponsesPattern": [solution.map(function (e, i) {
+                            return e ? Math.pow((7 - i), 2).toString() : ""
+                        })
+                        .reduce(function (acc, e) {
+                            return (acc.length > 0 && e.length > 0) ? acc + "[,]" + e : acc.length > 0 ? acc : e;
+                        }, "")]
+            }
+        };
+    }
+
+    function onSubmit() {
+        if (!isShowingSolution) {
+            var responses = [];
+            var allRight = true;
+            // assign classes and disable
+            for (var i = 0; i < 8; i++) {
+                allRight = allRight && (active[i] === solution[i]);
+                if (active[i]) {
+                    responses.push(Math.pow((7 - i), 2).toString());
+                }
+            }
+            var stmt = {};
+            // actor is set by hosting application
+            stmt.actor = undefined;
+            stmt.verb = {
+                "id": "http://adlnet.gov/expapi/verbs/answered",
+                "display": {
+                    "de-DE": "beantwortete",
+                    "en-US": "answered",
+                    "fr-FR": "a répondu",
+                    "es-ES": "contestó"
+                }
+            };
+            stmt.object = getXapiObject();
+            stmt.result = {
+                response: responses.reduce(function (acc, e) {
+                    return (acc.length > 0 && e.length > 0) ? acc + "[,]" + e : acc.length > 0 ? acc : e;
+                }, ""),
+                success: allRight
+            };
+            sendStatement(stmt);
+            isShowingSolution = true;
+            document.getElementById('solution').innerHTML = "Your numer is: "
+                    + active.map(function (e, i) {
+                        return e ? Math.pow(7 - i, 2) : 0;
+                    }).reduce(function (a, e) {
+                        return a + e;
+                    }, 0);
+            draw();
+        } else {
+            // remove classes and enable
+            isShowingSolution = false;
+            document.getElementById('solution').innerHTML = "";
+            draw();
+        }
+    }
+
+
+    init();
+    var question = "What is the binary representation of " + window.data.number + "?";
+    document.getElementById('question').innerHTML = question +
+            "<br />Click on the switches to set the correct binary number.";
+    var canvas = document.getElementById('canvas');
+    var ctx = canvas.getContext("2d");
+    var active = [false, false, false, false, false, false, false, false];
+    var solution = window.data.number.toString(2).split('').map(function (c) {
+        return c === "1"
+    });
+    var showHint = false;
+    var isShowingSolution = false;
+    draw();
+    canvas.addEventListener('click', onCanvasClicked);
+
+    // updateLayout();
+</script>
+<!-- END OF EXAMPLE CODE -->
 </body>
 </html>
