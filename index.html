@@ -23,16 +23,13 @@
 </head>
 <body>
 <!-- EXAMPLE CODE - EDIT BELOW TO VIEW DATA -->
-<div style="max-width: 300px;">
+<div style="text-align: center;">
     <p id="question"></p>
     <button id="showHintBtn" class="btn btn-primary" onclick="showHideHint()">Show Hint</button>
     <canvas id="canvas" width="300" height="150" style="width: 100%"></canvas>
     <p id="solution"></p>
 </div>
 <script type="application/javascript">
-    function getXapiObject() {
-        return {};
-    }
 
     function showHideHint() {
         showHint = !showHint;
@@ -53,11 +50,11 @@
                 ctx.closePath();
             }
             ctx.beginPath();
-            ctx.strokeStyle = isShowingSolution&&active[i]&&!solution[i]?"#ff0000":"#000000";
-            ctx.arc(i * 30 + 30 + 10, 50, 10, 0, Math.PI * 2);
+            ctx.strokeStyle = isShowingSolution && active[i] && !solution[i] ? "#ff0000" : "#000000";
+            ctx.arc(i * 30 + 30 + 10, 50, 10, 0, Math.PI * 2, false);
             ctx.stroke();
             if (active[i] || (isShowingSolution && solution[i])) {
-                ctx.fillStyle = active?"#00aa00":"#ff0000";
+                ctx.fillStyle = active ? "#00aa00" : "#ff0000";
                 ctx.fill();
             }
             ctx.closePath();
@@ -74,8 +71,8 @@
     function onCanvasClicked(event) {
         if (!isShowingSolution) {
             var rect = canvas.getBoundingClientRect();
-            var x = event.x - rect.left;
-            var y = event.y - rect.top;
+            var x = (event.clientX - rect.left) * (300 / (rect.right - rect.left));
+            var y = (event.clientY - rect.top) * (150 / (rect.bottom - rect.top));
             for (var i = 0; i < 8; i++) {
                 if (Math.pow(x - (i * 30 + 30 + 10), 2) + Math.pow(y - 50, 2) <= 100) {
                     active[i] = !active[i];
@@ -116,26 +113,27 @@
     }
 
     function getXapiObject() {
+        // may be called on init()
         return {
             "objectType": "Activity",
             // id is set by hosting application
             "id": undefined,
             "definition": {
                 "description": {
-                    "de-AT": window.data.question
+                    "de-AT": "What is the binary representation of " + window.data.number + "?"
                 },
                 "type": "http://adlnet.gov/expapi/activities/cmi.interaction",
                 "interactionType": "choice",
-                "choices": data.answers.map(function (e, i) {
+                "choices": [128, 64, 32, 16, 8, 4, 2, 1].map(function (e, i) {
                     return {
                         id: i.toString(),
                         description: {
-                            "de-AT": e.value
+                            "de-AT": i.toString()
                         }
                     }
                 }),
-                "correctResponsesPattern": [solution.map(function (e, i) {
-                            return e ? Math.pow((7 - i), 2).toString() : ""
+                "correctResponsesPattern": [window.data.number.toString(2).split('').map(function (c) {
+                            return c === "1" ? Math.pow((7 - i), 2).toString() : ""
                         })
                         .reduce(function (acc, e) {
                             return (acc.length > 0 && e.length > 0) ? acc + "[,]" + e : acc.length > 0 ? acc : e;
@@ -193,9 +191,8 @@
 
 
     init();
-    var question = "What is the binary representation of " + window.data.number + "?";
-    document.getElementById('question').innerHTML = question +
-            "<br />Click on the switches to set the correct binary number.";
+    document.getElementById('question').innerHTML = "What is the binary representation of " +
+            window.data.number + "?<br />Click on the switches to set the correct binary number.";
     var canvas = document.getElementById('canvas');
     var ctx = canvas.getContext("2d");
     var active = [false, false, false, false, false, false, false, false];
