@@ -26,7 +26,7 @@
 <div style="text-align: center;">
     <p id="question"></p>
     <button id="showHintBtn" class="btn btn-primary" onclick="showHideHint()">Show Hint</button>
-    <canvas id="canvas" width="300" height="150" style="width: 100%"></canvas>
+    <canvas id="canvas" width="600" height="300" style="width: 100%"></canvas>
     <p id="solution"></p>
 </div>
 <script type="application/javascript">
@@ -38,43 +38,55 @@
     }
 
     function draw() {
-        ctx.clearRect(0, 0, 300, 150);
+        ctx.clearRect(0, 0, 600, 300);
         for (var i = 0; i < 8; i++) {
             if (showHint) {
                 ctx.beginPath();
-                ctx.font = "12px Arial";
+                ctx.font = "24px Arial";
                 var text = (Math.pow(2, (7 - i))).toString();
                 var twh = Math.round(ctx.measureText(text).width / 2);
                 ctx.fillStyle = "#000000";
-                ctx.fillText(text, i * 30 + 30 + 10 - twh, 30);
+                ctx.fillText(text, i * 60 + 60 + 20 - twh, 60);
                 ctx.closePath();
             }
             ctx.beginPath();
             ctx.strokeStyle = isShowingSolution && active[i] && !solution[i] ? "#ff0000" : "#000000";
-            ctx.arc(i * 30 + 30 + 10, 50, 10, 0, Math.PI * 2, false);
+            ctx.lineWidth = isShowingSolution && active[i] && !solution[i] ? 3 : 1;
+            ctx.arc(i * 60 + 60 + 20, 100, 20, 0, Math.PI * 2, false);
             ctx.stroke();
             if (active[i] || (isShowingSolution && solution[i])) {
-                ctx.fillStyle = active ? "#00aa00" : "#ff0000";
+                ctx.fillStyle = active[i] ? ((isShowingSolution && !solution[i]) ? "#66ff66" : "#00aa00") : "#ff6666";
                 ctx.fill();
             }
             ctx.closePath();
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.font = "30px Arial";
+            ctx.font = "60px Arial";
             var text = active[i] ? "1" : "0";
             var twh = Math.round(ctx.measureText(text).width / 2);
-            ctx.fillStyle = "#000000";
-            ctx.fillText(text, i * 30 + 30 + 10 - twh, 100);
+            ctx.fillStyle = !isShowingSolution || (solution[i] === active[i]) ? "#000000" : "#ff0000";
+            ctx.fillText(text, i * 60 + 60 + 20 - twh, 200);
             ctx.closePath();
+            if (isShowingSolution) {
+                ctx.beginPath();
+                ctx.font = "60px Arial";
+                var text = solution[i] ? "1" : "0";
+                var twh = Math.round(ctx.measureText(text).width / 2);
+                ctx.fillStyle = "#00aa00";
+                ctx.fillText(text, i * 60 + 60 + 20 - twh, 260);
+                ctx.closePath();
+            }
         }
     }
 
     function onCanvasClicked(event) {
         if (!isShowingSolution) {
+            var outerRect = getBoundingClientRect();
             var rect = canvas.getBoundingClientRect();
-            var x = (event.clientX - rect.left) * (300 / (rect.right - rect.left));
-            var y = (event.clientY - rect.top) * (150 / (rect.bottom - rect.top));
+            var x = (event.clientX - rect.left - outerRect.left) * (600 / (rect.right - rect.left));
+            var y = (event.clientY - rect.top - outerRect.top) * (300 / (rect.bottom - rect.top));
             for (var i = 0; i < 8; i++) {
-                if (Math.pow(x - (i * 30 + 30 + 10), 2) + Math.pow(y - 50, 2) <= 100) {
+                if (Math.pow(x - (i * 60 + 60 + 20), 2) + Math.pow(y - 100, 2) <= 400) {
                     active[i] = !active[i];
                     draw();
                     onInteraction();
@@ -101,7 +113,7 @@
         var responses = [];
         for (var i = 0; i < 8; i++) {
             if (active[i]) {
-                responses.push(Math.pow((7 - i), 2).toString());
+                responses.push(Math.pow(2, (7 - i)).toString());
             }
         }
         stmt.result = {
@@ -133,7 +145,7 @@
                     }
                 }),
                 "correctResponsesPattern": [window.data.number.toString(2).split('').map(function (c) {
-                            return c === "1" ? Math.pow((7 - i), 2).toString() : ""
+                            return c === "1" ? Math.pow(2, (7 - i)).toString() : ""
                         })
                         .reduce(function (acc, e) {
                             return (acc.length > 0 && e.length > 0) ? acc + "[,]" + e : acc.length > 0 ? acc : e;
@@ -150,7 +162,7 @@
             for (var i = 0; i < 8; i++) {
                 allRight = allRight && (active[i] === solution[i]);
                 if (active[i]) {
-                    responses.push(Math.pow((7 - i), 2).toString());
+                    responses.push(Math.pow(2, (7 - i)).toString());
                 }
             }
             var stmt = {};
@@ -176,10 +188,10 @@
             isShowingSolution = true;
             document.getElementById('solution').innerHTML = "Your numer is: "
                     + active.map(function (e, i) {
-                        return e ? Math.pow(7 - i, 2) : 0;
+                        return e ? Math.pow(2, 7 - i) : 0;
                     }).reduce(function (a, e) {
                         return a + e;
-                    }, 0);
+                    }, 0) + "<br />" + (allRight?"Correct!":"Try again!");
             draw();
         } else {
             // remove classes and enable
@@ -196,7 +208,9 @@
     var canvas = document.getElementById('canvas');
     var ctx = canvas.getContext("2d");
     var active = [false, false, false, false, false, false, false, false];
-    var solution = window.data.number.toString(2).split('').map(function (c) {
+    var binaryString = window.data.number.toString(2);
+    binaryString = "00000000".substr(0, 8 - binaryString.length).concat(binaryString);
+    var solution = binaryString.split('').map(function (c) {
         return c === "1"
     });
     var showHint = false;
