@@ -14,10 +14,14 @@
             }
         }
         function updateLayout() {
-            propagateLayoutChanges();
+            if (typeof updateLayout === "function") {
+                propagateLayoutChanges();
+            }
         }
         function sendStatement(stmt) {
-            sendXapiStatement(stmt);
+            if (typeof sendXapiStatement === "function") {
+                sendXapiStatement(stmt);
+            }
         }
     </script>
 </head>
@@ -81,7 +85,7 @@
 
     function onCanvasClicked(event) {
         if (!isShowingSolution) {
-            var outerRect = getBoundingClientRect();
+            var outerRect = typeof getBoundingClientRect === "function" ? getBoundingClientRect() : {left: 0, top: 0};
             var rect = canvas.getBoundingClientRect();
             var x = (event.clientX - rect.left - outerRect.left) * (600 / (rect.right - rect.left));
             var y = (event.clientY - rect.top - outerRect.top) * (300 / (rect.bottom - rect.top));
@@ -126,6 +130,11 @@
 
     function getXapiObject() {
         // may be called on init()
+        var binaryString = window.data.number.toString(2);
+        binaryString = "00000000".substr(0, 8 - binaryString.length).concat(binaryString);
+        var solution = binaryString.split('').map(function (c) {
+            return c === "1"
+        });
         return {
             "objectType": "Activity",
             // id is set by hosting application
@@ -144,8 +153,8 @@
                         }
                     }
                 }),
-                "correctResponsesPattern": [window.data.number.toString(2).split('').map(function (c) {
-                            return c === "1" ? Math.pow(2, (7 - i)).toString() : ""
+                "correctResponsesPattern": [solution.map(function (e, i) {
+                            return e ? Math.pow(2, (7 - i)).toString() : ""
                         })
                         .reduce(function (acc, e) {
                             return (acc.length > 0 && e.length > 0) ? acc + "[,]" + e : acc.length > 0 ? acc : e;
@@ -191,7 +200,7 @@
                         return e ? Math.pow(2, 7 - i) : 0;
                     }).reduce(function (a, e) {
                         return a + e;
-                    }, 0) + "<br />" + (allRight?"Correct!":"Try again!");
+                    }, 0) + "<br />" + (allRight ? "Correct!" : "Try again!");
             draw();
         } else {
             // remove classes and enable
