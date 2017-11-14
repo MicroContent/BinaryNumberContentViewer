@@ -88,12 +88,12 @@
             for (var i = 0; i < 8; i++) {
                 if (Math.pow(x - (i * 60 + 60 + 20), 2) + Math.pow(y - 100, 2) <= 400) {
                     active[i] = !active[i];
-                    draw();
                     onInteraction();
                     break;
                 }
             }
         }
+        draw();
     }
 
     function onInteraction() {
@@ -199,6 +199,7 @@
             document.getElementById('solution').innerHTML = "";
             draw();
         }
+        updateLayout();
     }
 
 
