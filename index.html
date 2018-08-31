@@ -23,6 +23,13 @@
                 sendXapiStatement(stmt);
             }
         }
+        function getStatements() {
+            if (typeof getXapiStatements === "function") {
+                return getXapiStatements();
+            } else {
+                return [];
+            }
+        }
     </script>
 </head>
 <body>
@@ -33,6 +40,7 @@
     <canvas id="canvas" width="600" height="300" style="width: 100%"></canvas>
     <p id="solution"></p>
 </div>
+<div id="statistics"></div>
 <script type="application/javascript">
 
     function showHideHint() {
@@ -195,22 +203,72 @@
             };
             sendStatement(stmt);
             isShowingSolution = true;
-            document.getElementById('solution').innerHTML = "Your numer is: "
+            document.getElementById('solution').innerHTML = "Your number is: "
                     + active.map(function (e, i) {
                         return e ? Math.pow(2, 7 - i) : 0;
                     }).reduce(function (a, e) {
                         return a + e;
                     }, 0) + "<br />" + (allRight ? "Correct!" : "Try again!");
+            
+            setTimeout(function() { showStatistics(stmt.result) }, 1000);
             draw();
         } else {
             // remove classes and enable
             isShowingSolution = false;
             document.getElementById('solution').innerHTML = "";
+            hideStatistics();
             draw();
         }
         updateLayout();
     }
 
+    function showStatistics(result) {
+        var answered = [];
+        getStatements().forEach(function(s) {
+            if (s.verb.id.indexOf('answered') !== -1) {
+                answered.push(s);
+            }
+        });
+        if(answered.length === 0) return;
+        var correct = [];
+        var wrongRespones = {};
+        var answeredWrong = 0;
+        answered.forEach(function(s) {
+            if (s.result.success) {
+                correct.push(s);
+            } else {
+                if (wrongRespones[s.result.response] === undefined) {
+                    wrongRespones[s.result.response] = 1;
+                } else {
+                    wrongRespones[s.result.response]++;
+                }
+
+                if (!result.success && result.response === s.result.response) {
+                    answeredWrong++;
+                }
+            }
+        });
+
+        var max = {key: '', value: 0};
+        for (var response in wrongRespones) {
+            if (wrongRespones[response] > max.value)  {
+                max.key = response;
+                max.value = wrongRespones[response];
+            }
+        };
+        var showLearningMsg = (max.key === result.response && max.value > 4) ? true : false;
+
+        document.getElementById('statistics').innerHTML = 
+                        'Card answered: ' + answered.length + ' time(s)' +
+                        '<br>Ansered correct: ' + correct.length + ' time(s) (' +  Math.round(correct.length/answered.length*10000)/100 + '%)' +
+                        (answeredWrong > 1 ? ('<br>You\'ve made the same mistake before ' + (answeredWrong-1) +' time(s).') : ('')) +
+                        (showLearningMsg ? ('<br>This seems to be your most common mistake, try to reflect why you keep answering that way!') : (''));
+        updateLayout();        
+    }
+
+    function hideStatistics() {
+        document.getElementById('statistics').innerHTML = '';
+    }
 
     init();
     document.getElementById('question').innerHTML = "What is the binary representation of " +
@@ -227,7 +285,6 @@
     var isShowingSolution = false;
     draw();
     canvas.addEventListener('click', onCanvasClicked);
-
     // updateLayout();
 </script>
 <!-- END OF EXAMPLE CODE -->
