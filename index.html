@@ -3,32 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <title>BinaryNumberContentViewer</title>
+    <!-- Since GitHub Raw files use text/plain as MIME type the script cannot be executed when linking directly, instead routed over jsdelivr-->
+    <script src="https://cdn.jsdelivr.net/gh/MicroContent/BinaryNumberContentViewer/seamless.child.min.js"></script>
     <script type="application/javascript">
-        function init() {
-            if (typeof getData === 'undefined') {
-                window.data = {number: 255};
-            } else {
-                window.data = getData();
-                setXapiObjectGetter(getXapiObject);
-                registerOnSubmitListener(onSubmit);
+        var connection = window.seamless.connect({
+            url: window.location.url,
+            allowStyleInjection: true,
+        });
+
+        connection.receive(function(data) {
+            switch(data.type) {
+                case 'setContent':
+                    // parent for varying type of input sends data as special object; data.main[0] is the array of arrays with your message inside
+                    window.data = {number: parseInt(data.main[0].number,10)}
+                    binaryString = parseInt(data.main[0].number,10).toString(2);
+                    solution = binaryString.split('').map(function (c) {
+                        return c === "1"
+                    });
+                    init();
+                    break;
+
+                case 'submit':
+                    if (data.value === 'true'){
+                        onSubmit();
+                    }
+                    break;
+
+                case 'getXapiStatements':
+                    stmts = data.stmts;
+                    break;
             }
+        });
+
+        function init() {
+            if(window.data === undefined) {
+                window.data = {number: 255};
+                binaryString
+            }
+            document.getElementById('question').innerHTML = "What is the binary representation of " +
+                window.data.number + "?<br />Click on the switches to set the correct binary number.";
         }
         function updateLayout() {
-            if (typeof updateLayout === "function") {
-                propagateLayoutChanges();
-            }
+            connection.send({
+                type: 'updateLayout'
+            });
         }
         function sendStatement(stmt) {
-            if (typeof sendXapiStatement === "function") {
-                sendXapiStatement(stmt);
-            }
+            connection.send({
+                type: 'sendXapiStatement',
+                stmt: stmt
+            });
         }
         function getStatements() {
-            if (typeof getXapiStatements === "function") {
-                return getXapiStatements();
-            } else {
-                return [];
-            }
+            connection.send({
+                type: 'getXapiStatements'
+            });
         }
     </script>
 </head>
@@ -93,7 +122,7 @@
 
     function onCanvasClicked(event) {
         if (!isShowingSolution) {
-            var outerRect = typeof getBoundingClientRect === "function" ? getBoundingClientRect() : {left: 0, top: 0};
+            var outerRect = {left: 0, top: 0};
             var rect = canvas.getBoundingClientRect();
             var x = (event.clientX - rect.left - outerRect.left) * (600 / (rect.right - rect.left));
             var y = (event.clientY - rect.top - outerRect.top) * (300 / (rect.bottom - rect.top));
@@ -138,9 +167,9 @@
 
     function getXapiObject() {
         // may be called on init()
-        var binaryString = window.data.number.toString(2);
-        binaryString = "00000000".substr(0, 8 - binaryString.length).concat(binaryString);
-        var solution = binaryString.split('').map(function (c) {
+
+        binaryString = window.data.number.toString(2);
+        solution = binaryString.split('').map(function (c) {
             return c === "1"
         });
         return {
@@ -162,11 +191,11 @@
                     }
                 }),
                 "correctResponsesPattern": [solution.map(function (e, i) {
-                            return e ? Math.pow(2, (7 - i)).toString() : ""
-                        })
-                        .reduce(function (acc, e) {
-                            return (acc.length > 0 && e.length > 0) ? acc + "[,]" + e : acc.length > 0 ? acc : e;
-                        }, "")]
+                    return e ? Math.pow(2, (7 - i)).toString() : ""
+                })
+                    .reduce(function (acc, e) {
+                        return (acc.length > 0 && e.length > 0) ? acc + "[,]" + e : acc.length > 0 ? acc : e;
+                    }, "")]
             }
         };
     }
@@ -204,12 +233,13 @@
             sendStatement(stmt);
             isShowingSolution = true;
             document.getElementById('solution').innerHTML = "Your number is: "
-                    + active.map(function (e, i) {
-                        return e ? Math.pow(2, 7 - i) : 0;
-                    }).reduce(function (a, e) {
-                        return a + e;
-                    }, 0) + "<br />" + (allRight ? "Correct!" : "Try again!");
-            
+                + active.map(function (e, i) {
+                    return e ? Math.pow(2, 7 - i) : 0;
+                }).reduce(function (a, e) {
+                    return a + e;
+                }, 0) + "<br />" + (allRight ? "Correct!" : "Try again!");
+
+            getStatements();
             setTimeout(function() { showStatistics(stmt.result) }, 1000);
             draw();
         } else {
@@ -224,7 +254,7 @@
 
     function showStatistics(result) {
         var answered = [];
-        getStatements().forEach(function(s) {
+        stmts.forEach(function(s) {
             if (s.verb.id.indexOf('answered') !== -1) {
                 answered.push(s);
             }
@@ -258,12 +288,12 @@
         };
         var showLearningMsg = (max.key === result.response && max.value > 4) ? true : false;
 
-        document.getElementById('statistics').innerHTML = 
-                        'Card answered: ' + answered.length + ' time(s)' +
-                        '<br>Ansered correct: ' + correct.length + ' time(s) (' +  Math.round(correct.length/answered.length*10000)/100 + '%)' +
-                        (answeredWrong > 1 ? ('<br>You\'ve made the same mistake before ' + (answeredWrong-1) +' time(s).') : ('')) +
-                        (showLearningMsg ? ('<br>This seems to be your most common mistake, try to reflect why you keep answering that way!') : (''));
-        updateLayout();        
+        document.getElementById('statistics').innerHTML =
+            'Card answered: ' + answered.length + ' time(s)' +
+            '<br>Ansered correct: ' + correct.length + ' time(s) (' +  Math.round(correct.length/answered.length*10000)/100 + '%)' +
+            (answeredWrong > 1 ? ('<br>You\'ve made the same mistake before ' + (answeredWrong-1) +' time(s).') : ('')) +
+            (showLearningMsg ? ('<br>This seems to be your most common mistake, try to reflect why you keep answering that way!') : (''));
+        updateLayout();
     }
 
     function hideStatistics() {
@@ -271,13 +301,11 @@
     }
 
     init();
-    document.getElementById('question').innerHTML = "What is the binary representation of " +
-            window.data.number + "?<br />Click on the switches to set the correct binary number.";
     var canvas = document.getElementById('canvas');
     var ctx = canvas.getContext("2d");
     var active = [false, false, false, false, false, false, false, false];
+    var stmts = [];
     var binaryString = window.data.number.toString(2);
-    binaryString = "00000000".substr(0, 8 - binaryString.length).concat(binaryString);
     var solution = binaryString.split('').map(function (c) {
         return c === "1"
     });
