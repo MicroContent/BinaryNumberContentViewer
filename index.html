@@ -152,7 +152,9 @@
         };
         stmt.object = getXapiObject();
         var responses = [];
+        var allRight = true;
         for (var i = 0; i < 8; i++) {
+            allRight = allRight && (active[i] === solution[i]);
             if (active[i]) {
                 responses.push(Math.pow(2, (7 - i)).toString());
             }
@@ -160,7 +162,8 @@
         stmt.result = {
             response: responses.reduce(function (acc, e) {
                 return (acc.length > 0 && e.length > 0) ? acc + "[,]" + e : acc.length > 0 ? acc : e;
-            }, "")
+            }, ""),
+            success: allRight
         };
         sendStatement(stmt);
     }
@@ -169,6 +172,7 @@
         // may be called on init()
 
         binaryString = window.data.number.toString(2);
+        binaryString = "00000000".substr(0,8 -binaryString.length).concat(binaryString);
         solution = binaryString.split('').map(function (c) {
             return c === "1"
         });
@@ -313,7 +317,7 @@
     var isShowingSolution = false;
     draw();
     canvas.addEventListener('click', onCanvasClicked);
-    // updateLayout();
+    updateLayout();
 </script>
 <!-- END OF EXAMPLE CODE -->
 </body>
